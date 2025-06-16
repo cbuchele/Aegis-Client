@@ -1,4 +1,5 @@
 "use server";
+import { model, type modelID } from "@/ai/providers"; // <-- Add this import
 
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
@@ -40,29 +41,29 @@ function getMessageText(message: any): string {
   return '';
 }
 
-export async function generateTitle(messages: any[]) {
-  // Convert messages to a format that OpenAI can understand
+export async function generateTitle(messages: any[], selectedModel: modelID) { // <-- Add selectedModel here
+  // Convert messages to a format that the AI can understand
   const normalizedMessages = messages.map(msg => ({
     role: msg.role,
     content: getMessageText(msg)
   }));
   
   const { object } = await generateObject({
-    model: openai("gpt-4.1"),
+    // Use the dynamically selected model instead of being hard-coded to OpenAI
+    model: model.languageModel(selectedModel), // <-- Change this line
     schema: z.object({
       title: z.string().min(1).max(100),
     }),
     system: `
     You are a helpful assistant that generates titles for chat conversations.
-    The title should be a short description of the conversation.
-    The title should be no more than 30 characters.
-    The title should be unique and not generic.
+    The title should be a short, concise description of the conversation, under 5 words.
+    The title must not be generic (e.g., "New Chat", "Chat Conversation").
     `,
     messages: [
       ...normalizedMessages,
       {
         role: "user",
-        content: "Generate a title for the conversation.",
+        content: "Based on our conversation, generate a short, descriptive title.",
       },
     ],
   });

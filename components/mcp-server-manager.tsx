@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Dialog,
     DialogContent,
@@ -43,6 +43,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "./ui/tooltip";
+import { Textarea } from "./ui/textarea";
 
 // Default template for a new MCP server
 const INITIAL_NEW_SERVER: Omit<MCPServer, 'id'> = {
@@ -158,6 +159,8 @@ export const MCPServerManager = ({
 }: MCPServerManagerProps) => {
     const [newServer, setNewServer] = useState<Omit<MCPServer, 'id'>>(INITIAL_NEW_SERVER);
     const [view, setView] = useState<'list' | 'add'>('list');
+    const [jsonInput, setJsonInput] = useState('');
+    const [jsonError, setJsonError] = useState<string | null>(null);
     const [newEnvVar, setNewEnvVar] = useState<KeyValuePair>({ key: '', value: '' });
     const [newHeader, setNewHeader] = useState<KeyValuePair>({ key: '', value: '' });
     const [editingServerId, setEditingServerId] = useState<string | null>(null);
@@ -174,6 +177,8 @@ export const MCPServerManager = ({
     const resetAndClose = () => {
         setView('list');
         setNewServer(INITIAL_NEW_SERVER);
+        setJsonInput('');
+        setJsonError(null);
         setNewEnvVar({ key: '', value: '' });
         setNewHeader({ key: '', value: '' });
         setShowSensitiveEnvValues({});
@@ -206,6 +211,8 @@ export const MCPServerManager = ({
         toast.success(`Added MCP server: ${newServer.name}`);
         setView('list');
         setNewServer(INITIAL_NEW_SERVER);
+        setJsonInput('');
+        setJsonError(null);
         setNewEnvVar({ key: '', value: '' });
         setNewHeader({ key: '', value: '' });
         setShowSensitiveEnvValues({});
@@ -418,6 +425,8 @@ export const MCPServerManager = ({
             setView('list');
             setEditingServerId(null);
             setNewServer(INITIAL_NEW_SERVER);
+            setJsonInput('');
+            setJsonError(null);
             setShowSensitiveEnvValues({});
             setShowSensitiveHeaderValues({});
             setEditingEnvIndex(null);
@@ -448,9 +457,95 @@ export const MCPServerManager = ({
         setView('list');
         setEditingServerId(null);
         setNewServer(INITIAL_NEW_SERVER);
+        setJsonInput('');
+        setJsonError(null);
         setShowSensitiveEnvValues({});
         setShowSensitiveHeaderValues({});
     };
+
+    // Handle JSON input change
+    useEffect(() => {
+        if (!jsonInput.trim()) {
+            setJsonError(null);
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(jsonInput);
+            setJsonError(null);
+
+            // Priority 1: Check for Claude-style config: { "mcpServers": { ... } }
+            if (typeof parsed === 'object' && parsed !== null && parsed.mcpServers && typeof parsed.mcpServers === 'object') {
+                const serversObject = parsed.mcpServers;
+                const serversToAdd = Object.entries(serversObject).map(([name, config]: [string, any]) => {
+                    const newServer: Omit<MCPServer, 'id' | 'status'> = {
+                        name: name,
+                        type: config.command ? 'stdio' : 'sse',
+                        url: config.url || '',
+                        command: config.command,
+                        args: config.args,
+                        env: config.env || [],
+                        headers: config.headers || [],
+                        description: config.description || ''
+                    };
+                    return { ...newServer, id: crypto.randomUUID() };
+                });
+
+                if (serversToAdd.length === 0) {
+                    setJsonError("No servers found in 'mcpServers' object.");
+                    return;
+                }
+
+                const validServers = serversToAdd.filter(s => {
+                    if (s.type === 'stdio') return s.command && s.args;
+                    if (s.type === 'sse') return s.url;
+                    return false;
+                });
+
+                if (validServers.length < serversToAdd.length) {
+                    toast.warning(`Some server configurations were invalid and have been skipped.`);
+                }
+
+                if (validServers.length > 0) {
+                    const updatedServers = [...servers, ...validServers];
+                    onServersChange(updatedServers);
+                    toast.success(`Added ${validServers.length} server(s) from JSON config.`);
+                    setJsonInput('');
+                    setView('list');
+                } else {
+                    setJsonError("No valid server configurations found in JSON.");
+                }
+
+            } else if (Array.isArray(parsed)) {
+                // Handle array of servers
+                const serversToAdd = parsed.map(item => ({ ...item, id: crypto.randomUUID() }));
+                const updatedServers = [...servers, ...serversToAdd];
+                onServersChange(updatedServers);
+                toast.success(`Added ${serversToAdd.length} servers from JSON.`);
+                setJsonInput('');
+                setView('list');
+            } else if (typeof parsed === 'object' && parsed !== null) {
+                // Handle single server object to pre-fill the form
+                const serverFromJSON: Omit<MCPServer, 'id'> = {
+                    name: parsed.name || '',
+                    url: parsed.url || '',
+                    type: (parsed.type === 'stdio' || parsed.type === 'sse') ? parsed.type : 'sse',
+                    command: parsed.command || 'node',
+                    args: Array.isArray(parsed.args) ? parsed.args : [],
+                    env: Array.isArray(parsed.env) ? parsed.env : [],
+                    headers: Array.isArray(parsed.headers) ? parsed.headers : [],
+                    description: parsed.description || '',
+                };
+                setNewServer(serverFromJSON);
+                toast.info("Form populated from JSON. Review and save.");
+                setJsonInput(''); 
+            } else {
+                throw new Error("Unsupported JSON format.");
+            }
+        } catch (error) {
+            setJsonError(error instanceof Error ? `Invalid JSON: ${error.message}` : "Invalid JSON format.");
+        }
+    }, [jsonInput, onServersChange, servers]);
 
     // Update functions to control servers
     const toggleServerStatus = async (server: MCPServer, e: React.MouseEvent) => {
@@ -706,6 +801,33 @@ export const MCPServerManager = ({
                 ) : (
                     <div className="space-y-4 overflow-y-auto px-1 py-0.5 mb-14 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                         <h3 className="text-sm font-medium">{editingServerId ? "Edit MCP Server" : "Add New MCP Server"}</h3>
+
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="json-config">Import from JSON</Label>
+                            <Textarea
+                                id="json-config"
+                                value={jsonInput}
+                                onChange={(e) => setJsonInput(e.target.value)}
+                                placeholder='Paste a single server JSON object or an array of servers...'
+                                className="min-h-[100px] font-mono text-xs"
+                            />
+                            {jsonError && <p className="text-xs text-red-500">{jsonError}</p>}
+                            <p className="text-xs text-muted-foreground">
+                                Pasting a valid configuration will auto-fill the fields or add servers directly.
+                            </p>
+                        </div>
+
+                        <div className="relative my-4">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-background px-2 text-muted-foreground">
+                                    Or configure manually
+                                </span>
+                            </div>
+                        </div>
+
                         <div className="space-y-4">
                             <div className="grid gap-1.5">
                                 <Label htmlFor="name">

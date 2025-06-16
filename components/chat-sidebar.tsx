@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { MessageSquare, PlusCircle, Trash2, ServerIcon, Settings, Sparkles, ChevronsUpDown, Copy, Pencil, Github, Key } from "lucide-react";
+import { MessageSquare, PlusCircle, Trash2, ServerIcon, Settings, Sparkles, ChevronsUpDown, Copy, Pencil, Github, Key, Bot } from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
@@ -52,6 +52,7 @@ import { Label } from "@/components/ui/label";
 import { useMCP } from "@/lib/context/mcp-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatePresence, motion } from "motion/react";
+import { OllamaManager } from "./ollama-manager";
 
 export function ChatSidebar() {
     const router = useRouter();
@@ -59,6 +60,7 @@ export function ChatSidebar() {
     const [userId, setUserId] = useState<string>('');
     const [mcpSettingsOpen, setMcpSettingsOpen] = useState(false);
     const [apiKeySettingsOpen, setApiKeySettingsOpen] = useState(false);
+    const [ollamaSettingsOpen, setOllamaSettingsOpen] = useState(false);
     const { state } = useSidebar();
     const isCollapsed = state === "collapsed";
     const [editUserIdOpen, setEditUserIdOpen] = useState(false);
@@ -105,7 +107,7 @@ export function ChatSidebar() {
 
         updateUserId(newUserId.trim());
         setUserId(newUserId.trim());
-        setEditUserIdOpen(false);
+        setEditUserIdOpen((open: boolean) => !open);
         toast.success("User ID updated successfully");
         
         // Refresh the page to reload chats with new user ID
@@ -140,10 +142,10 @@ export function ChatSidebar() {
                 <div className="flex items-center justify-start">
                     <div className={`flex items-center gap-2 ${isCollapsed ? "justify-center w-full" : ""}`}>
                         <div className={`relative rounded-full bg-primary/70 flex items-center justify-center ${isCollapsed ? "size-5 p-3" : "size-6"}`}>
-                            <Image src="/scira.png" alt="Scira Logo" width={24} height={24} className="absolute transform scale-75" unoptimized quality={100} />
+                            <Image src="/logo.png" alt="Aegis AI Logo" width={52} height={52} className="absolute transform scale-75" unoptimized quality={100} />
                         </div>
                         {!isCollapsed && (
-                            <div className="font-semibold text-lg text-foreground/90">MCP</div>
+                            <div className="font-semibold text-lg text-foreground/90">Aegis AI</div>
                         )}
                     </div>
                 </div>
@@ -361,7 +363,7 @@ export function ChatSidebar() {
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
-                                <DropdownMenuItem onSelect={(e) => {
+                                <DropdownMenuItem onSelect={(e: React.MouseEvent | React.KeyboardEvent) => {
                                     e.preventDefault();
                                     navigator.clipboard.writeText(userId);
                                     toast.success("User ID copied to clipboard");
@@ -369,7 +371,7 @@ export function ChatSidebar() {
                                     <Copy className="mr-2 h-4 w-4 hover:text-sidebar-accent" />
                                     Copy User ID
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={(e) => {
+                                <DropdownMenuItem onSelect={(e: React.MouseEvent | React.KeyboardEvent) => {
                                     e.preventDefault();
                                     setEditUserIdOpen(true);
                                 }}>
@@ -379,35 +381,26 @@ export function ChatSidebar() {
                             </DropdownMenuGroup>
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
-                                <DropdownMenuItem onSelect={(e) => {
+                                <DropdownMenuItem onSelect={(e: React.MouseEvent | React.KeyboardEvent) => {
                                     e.preventDefault();
                                     setMcpSettingsOpen(true);
                                 }}>
                                     <Settings className="mr-2 h-4 w-4 hover:text-sidebar-accent" />
                                     MCP Settings
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={(e) => {
+                                <DropdownMenuItem onSelect={(e: React.MouseEvent | React.KeyboardEvent) => {
                                     e.preventDefault();
                                     setApiKeySettingsOpen(true);
                                 }}>
                                     <Key className="mr-2 h-4 w-4 hover:text-sidebar-accent" />
                                     API Keys
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={(e) => {
+                                <DropdownMenuItem onSelect={(e: React.MouseEvent | React.KeyboardEvent) => {
                                     e.preventDefault();
-                                    window.open("https://git.new/s-mcp", "_blank");
+                                    setOllamaSettingsOpen(true);
                                 }}>
-                                    <Github className="mr-2 h-4 w-4 hover:text-sidebar-accent" />
-                                    GitHub
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                    <div className="flex items-center justify-between w-full">
-                                        <div className="flex items-center">
-                                            <Sparkles className="mr-2 h-4 w-4 hover:text-sidebar-accent" />
-                                            Theme
-                                        </div>
-                                        <ThemeToggle className="h-6 w-6" />
-                                    </div>
+                                    <Bot className="mr-2 h-4 w-4 hover:text-sidebar-accent" />
+                                    Ollama
                                 </DropdownMenuItem>
                             </DropdownMenuGroup>
                         </DropdownMenuContent>
@@ -427,9 +420,14 @@ export function ChatSidebar() {
                     open={apiKeySettingsOpen}
                     onOpenChange={setApiKeySettingsOpen}
                 />
+
+                <OllamaManager
+                    open={ollamaSettingsOpen}
+                    onOpenChange={setOllamaSettingsOpen}
+                />
             </SidebarFooter>
 
-            <Dialog open={editUserIdOpen} onOpenChange={(open) => {
+            <Dialog open={editUserIdOpen} onOpenChange={(open: boolean) => {
                 setEditUserIdOpen(open);
                 if (open) {
                     setNewUserId(userId);

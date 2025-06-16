@@ -70,7 +70,8 @@ export async function POST(req: Request) {
 
       if (userMessage) {
         try {
-          title = await generateTitle([userMessage]);
+          // Pass the selectedModel to the generateTitle function
+          title = await generateTitle([userMessage], selectedModel);
         } catch (error) {
           console.error("Error generating title:", error);
         }
@@ -82,11 +83,13 @@ export async function POST(req: Request) {
         userId,
         title,
         messages: [],
+        selectedModel,
       });
     } catch (error) {
+      // This is the missing catch block
       console.error("Error saving new chat:", error);
     }
-  }
+  } // <-- The 'if' block also needs to be closed here
 
   // Initialize MCP clients using the already running persistent SSE servers
   // mcpServers now only contains SSE configurations since stdio servers
@@ -157,6 +160,7 @@ export async function POST(req: Request) {
         id,
         userId,
         messages: allMessages,
+        selectedModel,
       });
 
       const dbMessages = convertToDBMessages(allMessages, id);

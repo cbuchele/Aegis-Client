@@ -15,6 +15,7 @@ import { convertToUIMessages } from "@/lib/chat-store";
 import { type Message as DBMessage } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 import { useMCP } from "@/lib/context/mcp-context";
+import { useOllamaSettings } from "@/lib/hooks/use-ollama-settings";
 
 // Type for chat data from DB
 interface ChatData {
@@ -33,6 +34,7 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useLocalStorage<modelID>("selectedModel", defaultModel);
   const [userId, setUserId] = useState<string>('');
   const [generatedChatId, setGeneratedChatId] = useState<string>('');
+  const { ollamaHost } = useOllamaSettings();
   
   // Get MCP server data from context
   const { mcpServersForApi } = useMCP();
@@ -112,6 +114,7 @@ export default function Chat() {
         mcpServers: mcpServersForApi,
         chatId: chatId || generatedChatId, // Use generated ID if no chatId in URL
         userId,
+        ollamaHost,
       },
       experimental_throttle: 500,
       onFinish: () => {

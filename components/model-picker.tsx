@@ -43,6 +43,8 @@ export const ModelPicker = ({ selectedModel, setSelectedModel }: ModelPickerProp
         return <Sparkles className="h-3 w-3 text-blue-500" />;
       case 'xai':
         return <Sparkles className="h-3 w-3 text-yellow-500" />;
+      case 'ollama':
+        return <Bot className="h-3 w-3 text-slate-500" />;
       default:
         return <Info className="h-3 w-3 text-blue-500" />;
     }
@@ -70,6 +72,8 @@ export const ModelPicker = ({ selectedModel, setSelectedModel }: ModelPickerProp
         return <Rocket className="h-2.5 w-2.5" />;
       case 'agentic':
         return <Bot className="h-2.5 w-2.5" />;
+      case 'local':
+        return <Bot className="h-2.5 w-2.5 text-slate-500" />;
       default:
         return <Info className="h-2.5 w-2.5" />;
     }
@@ -96,6 +100,8 @@ export const ModelPicker = ({ selectedModel, setSelectedModel }: ModelPickerProp
         return "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300";
       case 'agentic':
         return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300";
+      case 'local':
+        return "bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
     }
